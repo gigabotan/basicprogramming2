@@ -1,0 +1,73 @@
+﻿using System;
+using System.Collections.Generic;
+
+namespace Clones;
+
+public class CloneVersionSystem : ICloneVersionSystem
+{
+    private class Clone
+    {
+        public readonly Stack<string> data = new Stack<string>();
+        private readonly Stack<string> undoStack = new Stack<string>();
+
+        public Clone()
+        {
+        }
+
+        public Clone(Clone other)
+        {
+            data = new Stack<string>(other.data);
+            undoStack = new Stack<string>(other.undoStack);
+        }
+
+        public void Learn(string x)
+        {
+            data.Push(x);
+        }
+
+        public void Rollback()
+        {
+            undoStack.Push(data.Pop());
+        }
+
+        public void Relearn()
+        {
+            data.Push(undoStack.Pop());
+        }
+
+        public string Check()
+        {
+            return data.Count > 0 ? data.Peek() : "basic";
+        }
+    }
+
+    private readonly List<Clone> clones = new List<Clone> { new Clone() };
+
+    public string Execute(string query)
+    {
+        var parts = query.Split(' ');
+        var command = parts[0];
+        var cloneId = int.Parse(parts[1]) - 1;
+        var clone = clones[cloneId];
+
+        switch (command)
+        {
+            case "learn":
+                clone.Learn(parts[2]);
+                return null;
+            case "rollback":
+                clone.Rollback();
+                return null;
+            case "relearn":
+                clone.Relearn();
+                return null;
+            case "check":
+                return clone.Check();
+            case "clone":
+                clones.Add(new Clone(clone));
+                return null;
+            default:
+                throw new InvalidOperationException($"Unknown command: {command}");
+        }
+    }
+}
