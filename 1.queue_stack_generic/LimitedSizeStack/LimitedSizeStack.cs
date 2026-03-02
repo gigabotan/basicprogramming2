@@ -7,6 +7,7 @@ public class LimitedSizeStack<T>
 {
     private readonly int maxSize;
     private readonly LinkedList<T> items = new();
+    public int Count => items.Count;
 
     public LimitedSizeStack(int undoLimit)
     {
@@ -32,10 +33,8 @@ public class LimitedSizeStack<T>
         {
             throw new InvalidOperationException("Stack is empty.");
         }
-        var item = items.Last!.Value;
+        var lastItem = items.Last!.Value;
         items.RemoveLast();
-        return item;
+        return lastItem;
     }
-
-    public int Count => items.Count;
 }

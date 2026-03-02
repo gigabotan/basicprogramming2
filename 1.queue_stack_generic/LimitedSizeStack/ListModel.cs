@@ -6,7 +6,6 @@ namespace LimitedSizeStack;
 public class ListModel<TItem>
 {
     public List<TItem> Items { get; }
-    public int UndoLimit;
     private readonly LimitedSizeStack<ItemCommand> undoStack;
 
     private class ItemCommand(ItemCommand.CommandType type, TItem item, int index)
@@ -30,7 +29,6 @@ public class ListModel<TItem>
     public ListModel(List<TItem> items, int undoLimit)
     {
         Items = items;
-        UndoLimit = undoLimit;
         undoStack = new LimitedSizeStack<ItemCommand>(undoLimit);
     }
 

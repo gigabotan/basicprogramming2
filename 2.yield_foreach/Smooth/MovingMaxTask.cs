@@ -8,19 +8,19 @@ public static class MovingMaxTask
 {
     public static IEnumerable<DataPoint> MovingMax(this IEnumerable<DataPoint> data, int windowWidth)
     {
-        var queue = new LinkedList<(double value, int index)>();
-        int i = 0;
+        var slidingWindowQueue = new LinkedList<(double value, int index)>();
+        var i = 0;
         foreach (var point in data)
         {
-            while (queue.Count > 0 && queue.First.Value.index <= i - windowWidth)
-                queue.RemoveFirst();
+            if (slidingWindowQueue.Count > 0 && slidingWindowQueue.First.Value.index <= i - windowWidth)
+                slidingWindowQueue.RemoveFirst();
 
-            while (queue.Count > 0 && queue.Last.Value.value <= point.OriginalY)
-                queue.RemoveLast();
+            while (slidingWindowQueue.Count > 0 && slidingWindowQueue.Last.Value.value <= point.OriginalY)
+                slidingWindowQueue.RemoveLast();
 
-            queue.AddLast((point.OriginalY, i));
+            slidingWindowQueue.AddLast((point.OriginalY, i));
 
-            yield return point.WithMaxY(queue.First.Value.value);
+            yield return point.WithMaxY(slidingWindowQueue.First.Value.value);
             i++;
         }
     }

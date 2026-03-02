@@ -7,8 +7,8 @@ public static class ExpSmoothingTask
 {
     public static IEnumerable<DataPoint> SmoothExponentialy(this IEnumerable<DataPoint> data, double alpha)
     {
-        double prevSmoothed = 0;
-        bool isFirst = true;
+        var prevSmoothed = 0.0;
+        var isFirst = true;
         foreach (var point in data)
         {
             if (isFirst)
@@ -17,9 +17,8 @@ public static class ExpSmoothingTask
                 isFirst = false;
             }
 
-            var smoothed = alpha * point.OriginalY + (1 - alpha) * prevSmoothed;
-            prevSmoothed = smoothed;
-            yield return point.WithExpSmoothedY(smoothed);
+            prevSmoothed = alpha * point.OriginalY + (1 - alpha) * prevSmoothed;
+            yield return point.WithExpSmoothedY(prevSmoothed);
         }
     }
 }
