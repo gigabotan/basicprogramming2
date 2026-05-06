@@ -1,46 +1,66 @@
+using System.Collections.Generic;
+
 namespace rocket_bot;
 
 public class Channel<T> where T : class
 {
-	/// <summary>
-	/// Возвращает элемент по индексу или null, если такого элемента нет.
-	/// При присвоении удаляет все элементы после.
-	/// Если индекс в точности равен размеру коллекции, работает как Append.
-	/// </summary>
-	public T this[int index]
-	{
-		get
-		{
-			return null;
-		}
-		set
-		{
-		}
-	}
+    private readonly object locker = new();
+    private readonly List<T> items = new();
 
-	/// <summary>
-	/// Возвращает последний элемент или null, если такого элемента нет
-	/// </summary>
-	public T LastItem()
-	{
-		return null;
-	}
+    public T this[int index]
+    {
+        get
+        {
+            lock (locker)
+            {
+                return index >= 0 && index < items.Count ? items[index] : null;
+            }
+        }
+        set
+        {
+            lock (locker)
+            {
+                if (index < 0 || index > items.Count)
+                    return;
 
-	/// <summary>
-	/// Добавляет item в конец только если lastItem является последним элементом
-	/// </summary>
-	public void AppendIfLastItemIsUnchanged(T item, T knownLastItem)
-	{
-	}
+                if (index == items.Count)
+                    items.Add(value);
+                else
+                {
+                    items[index] = value;
+                    items.RemoveRange(index + 1, items.Count - index - 1);
+                }
+            }
+        }
+    }
 
-	/// <summary>
-	/// Возвращает количество элементов в коллекции
-	/// </summary>
-	public int Count
-	{
-		get
-		{
-			return 0;
-		}
-	}
+    public T LastItem()
+    {
+        lock (locker)
+        {
+            return items.Count == 0 ? null : items[^1];
+        }
+    }
+
+
+    public void AppendIfLastItemIsUnchanged(T item, T knownLastItem)
+    {
+        lock (locker)
+        {
+            if (items.Count == 0 && knownLastItem == null ||
+                items.Count > 0 && ReferenceEquals(items[^1], knownLastItem))
+                items.Add(item);
+        }
+    }
+
+    public int Count
+    {
+        get
+        {
+            lock (locker)
+            {
+                return items.Count;
+            }
+        }
+    }
 }
