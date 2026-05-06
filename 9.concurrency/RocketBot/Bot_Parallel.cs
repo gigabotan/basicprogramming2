@@ -9,13 +9,28 @@ public partial class Bot
 {
 	public Rocket GetNextMove(Rocket rocket)
 	{
-		// TODO: распараллелить запуск SearchBestMove
-		var (turn, score) = CreateTasks(rocket)
-			.First()
+		var actualThreadsCount = Math.Max(1, Math.Min(threadsCount, iterationsCount));
+		var iterationsPerThread = iterationsCount / actualThreadsCount;
+		var remainingIterations = iterationsCount % actualThreadsCount;
+		var tasks = new Task<(Turn Turn, double Score)>[actualThreadsCount];
+
+		for (var i = 0; i < actualThreadsCount; i++)
+		{
+			var seed = random.Next();
+			var searchIterationsCount = iterationsPerThread + (i < remainingIterations ? 1 : 0);
+			tasks[i] = Task.Run(() => SearchBestMove(rocket, new Random(seed), searchIterationsCount));
+		}
+
+		var results = Task.WhenAll(tasks)
 			.GetAwaiter()
 			.GetResult();
-		
-		return rocket.Move(turn, level);
+
+		var bestMove = results[0];
+		for (var i = 1; i < results.Length; i++)
+			if (results[i].Score > bestMove.Score)
+				bestMove = results[i];
+
+		return rocket.Move(bestMove.Turn, level);
 	}
 	
 	public List<Task<(Turn Turn, double Score)>> CreateTasks(Rocket rocket)
