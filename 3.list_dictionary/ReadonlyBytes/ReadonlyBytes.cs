@@ -24,8 +24,8 @@ namespace hashes
 
         public IEnumerator<byte> GetEnumerator()
         {
-            foreach (var x in _data)
-                yield return x;
+            foreach (var item in _data)
+                yield return item;
         }
 
         IEnumerator IEnumerable.GetEnumerator()
@@ -73,21 +73,21 @@ namespace hashes
             if (_data.Length == 0)
                 return 0;
 
+            const uint fnvOffset = 2166136261;
+            const uint fnvPrime = 16777619;
+
+            uint hash = fnvOffset;
+
             unchecked
             {
-                const uint fnvOffset = 2166136261;
-                const uint fnvPrime = 16777619;
-
-                uint hash = fnvOffset;
-
                 for (int i = 0; i < _data.Length; i++)
                 {
                     hash ^= _data[i];
                     hash *= fnvPrime;
                 }
-
-                return (int)hash;
             }
+
+            return (int)hash;
         }
     }
 }

@@ -23,28 +23,9 @@ public class GhostsTask :
         Robot.BatteryCapacity += 1;
     }
 
-    Document IFactory<Document>.Create()
-    {
-        return new Document("Ghost", _encoding, _content);
-    }
-
-    Vector IFactory<Vector>.Create()
-    {
-        return _vector;
-    }
-
-    Segment IFactory<Segment>.Create()
-    {
-        return _segment;
-    }
-
-    Cat IFactory<Cat>.Create()
-    {
-        return _cat;
-    }
-
-    Robot IFactory<Robot>.Create()
-    {
-        return _robot;
-    }
+    Document IFactory<Document>.Create() => new Document("Ghost", _encoding, _content);
+    Vector IFactory<Vector>.Create() => _vector;
+    Segment IFactory<Segment>.Create() => _segment;
+    Cat IFactory<Cat>.Create() => _cat;
+    Robot IFactory<Robot>.Create() => _robot;
 }
