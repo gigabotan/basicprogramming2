@@ -9,7 +9,7 @@ namespace func.brainfuck
         public int InstructionPointer { get; set; }
         public byte[] Memory { get; }
         public int MemoryPointer { get; set; }
-        private readonly Dictionary<char, Action<IVirtualMachine>> commands = new();
+        private readonly Dictionary<char, Action<IVirtualMachine>> commands;
 
 
         public VirtualMachine(string program, int memorySize)
@@ -18,6 +18,7 @@ namespace func.brainfuck
             Instructions = program;
             MemoryPointer = 0;
             InstructionPointer = 0;
+            commands = new Dictionary<char, Action<IVirtualMachine>>();
         }
 
         public void RegisterCommand(char symbol, Action<IVirtualMachine> execute)

@@ -6,26 +6,28 @@ namespace func.brainfuck
     {
         public static void RegisterTo(IVirtualMachine vm, Func<int> read, Action<char> write)
         {
-            vm.RegisterCommand('.', b => { write((char)b.Memory[b.MemoryPointer]); });
-            vm.RegisterCommand('+', b => { unchecked { b.Memory[b.MemoryPointer]++; } });
-            vm.RegisterCommand('-', b => { unchecked { b.Memory[b.MemoryPointer]--; } });
-            vm.RegisterCommand(',', b => { b.Memory[b.MemoryPointer] = (byte)read(); });
-            vm.RegisterCommand('<', b => MovePointer(b, -1));
-            vm.RegisterCommand('>', b => MovePointer(b, +1));
+            vm.RegisterCommand('.', machine => { write((char)machine.Memory[machine.MemoryPointer]); });
+            vm.RegisterCommand('+', machine => { unchecked { machine.Memory[machine.MemoryPointer]++; } });
+            vm.RegisterCommand('-', machine => { unchecked { machine.Memory[machine.MemoryPointer]--; } });
+            vm.RegisterCommand(',', machine => { machine.Memory[machine.MemoryPointer] = (byte)read(); });
+            vm.RegisterCommand('<', machine => MovePointer(machine, -1));
+            vm.RegisterCommand('>', machine => MovePointer(machine, +1));
             RegisterAsciiRange(vm, '0', '9');
             RegisterAsciiRange(vm, 'A', 'Z');
             RegisterAsciiRange(vm, 'a', 'z');
         }
 
-        private static void MovePointer(IVirtualMachine b, int delta) =>
-            b.MemoryPointer = (b.MemoryPointer + delta + b.Memory.Length) % b.Memory.Length;
+        private static void MovePointer(IVirtualMachine machine, int delta) =>
+            machine.MemoryPointer = (machine.MemoryPointer + delta + machine.Memory.Length) % machine.Memory.Length;
 
         private static void RegisterAsciiRange(IVirtualMachine vm, char start, char end)
         {
-            for (var c = start; c <= end; c++)
+            for (var ch = start; ch <= end; ch++)
             {
-                var cc = c;
-                vm.RegisterCommand(cc, b => { b.Memory[b.MemoryPointer] = (byte)cc; });
+                var capturedChar = ch;
+                vm.RegisterCommand(
+                    capturedChar,
+                    machine => machine.Memory[machine.MemoryPointer] = (byte)capturedChar);
             }
         }
     }
