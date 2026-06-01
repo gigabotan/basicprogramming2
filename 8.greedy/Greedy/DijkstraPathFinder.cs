@@ -1,172 +1,88 @@
-using System;
 using System.Collections.Generic;
-using System.Linq;
 using Greedy.Architecture;
 
 namespace Greedy;
 
+class DijkstraData
+{
+    public Point Previous { get; set; }
+    public int Price { get; set; }
+}
+
 public class DijkstraPathFinder
 {
-    private static readonly Point[] Directions =
-    {
-        new(1, 0),
-        new(-1, 0),
-        new(0, 1),
-        new(0, -1)
-    };
+    private static readonly (int dx, int dy)[] Directions = [(1, 0), (-1, 0), (0, 1), (0, -1)];
 
-    public IEnumerable<PathWithCost> GetPathsByDijkstra(
-        State state,
-        Point start,
+    public IEnumerable<PathWithCost> GetPathsByDijkstra(State state, Point start,
         IEnumerable<Point> targets)
     {
-        var targetPoints = new HashSet<Point>(targets);
-        if (ShouldStop(state, start, targetPoints))
-            yield break;
+        var heap = new PriorityQueue<Point, int>();
+        var track = new Dictionary<Point, DijkstraData>();
+        var visited = new HashSet<Point>();
+        var chests = new HashSet<Point>(state.Chests);
 
-        var pathCosts = new Dictionary<Point, int> { [start] = 0 };
-        var previousPoints = new Dictionary<Point, Point>();
-        var openPoints = CreateOpenPoints(start);
+        track[start] = new DijkstraData { Price = 0, Previous = new Point(-1, -1) };
+        heap.Enqueue(start, 0);
 
-        while (openPoints.Count > 0 && targetPoints.Count > 0)
-            foreach (var path in EnumerateNewPaths(
-                         state,
-                         start,
-                         targetPoints,
-                         pathCosts,
-                         previousPoints,
-                         openPoints))
-                yield return path;
-    }
-
-    private static bool ShouldStop(
-        State state,
-        Point start,
-        HashSet<Point> targetPoints)
-    {
-        return targetPoints.Count == 0
-               || !state.InsideMap(start)
-               || state.IsWallAt(start);
-    }
-
-    private static PriorityQueue<Point, int> CreateOpenPoints(Point start)
-    {
-        var openPoints = new PriorityQueue<Point, int>();
-        openPoints.Enqueue(start, 0);
-        return openPoints;
-    }
-
-    private static IEnumerable<PathWithCost> EnumerateNewPaths(
-        State state,
-        Point start,
-        HashSet<Point> targetPoints,
-        Dictionary<Point, int> pathCosts,
-        Dictionary<Point, Point> previousPoints,
-        PriorityQueue<Point, int> openPoints)
-    {
-        if (!TryGetCurrentPoint(pathCosts, openPoints, out var currentPoint, out var currentCost))
-            yield break;
-
-        if (targetPoints.Remove(currentPoint))
-            yield return CreatePath(start, currentPoint, currentCost, previousPoints);
-
-        UpdateNeighbors(state, currentPoint, currentCost, pathCosts, previousPoints, openPoints);
-    }
-
-    private static bool TryGetCurrentPoint(
-        Dictionary<Point, int> pathCosts,
-        PriorityQueue<Point, int> openPoints,
-        out Point currentPoint,
-        out int currentCost)
-    {
-        openPoints.TryDequeue(out currentPoint, out currentCost);
-        return pathCosts[currentPoint] == currentCost;
-    }
-
-    private static PathWithCost CreatePath(
-        Point start,
-        Point end,
-        int cost,
-        Dictionary<Point, Point> previousPoints)
-    {
-        var pathPoints = BuildPath(previousPoints, start, end);
-        return new PathWithCost(cost, pathPoints.ToArray());
-    }
-
-    private static void UpdateNeighbors(
-        State state,
-        Point currentPoint,
-        int currentCost,
-        Dictionary<Point, int> pathCosts,
-        Dictionary<Point, Point> previousPoints,
-        PriorityQueue<Point, int> openPoints)
-    {
-        foreach (var nextPoint in GetNeighbors(state, currentPoint))
-            UpdatePath(
-                state,
-                currentPoint,
-                currentCost,
-                nextPoint,
-                pathCosts,
-                previousPoints,
-                openPoints);
-    }
-
-    private static IEnumerable<Point> GetNeighbors(State state, Point point)
-    {
-        foreach (var direction in Directions)
+        while (heap.Count > 0)
         {
-            var nextPoint = point + direction;
-            if (!state.InsideMap(nextPoint) || state.IsWallAt(nextPoint))
+            var toOpen = heap.Dequeue();
+            if (!visited.Add(toOpen))
                 continue;
 
-            yield return nextPoint;
+            if (chests.Contains(toOpen))
+            {
+                yield return new PathWithCost(track[toOpen].Price, BuildPath(track, toOpen));
+                chests.Remove(toOpen);
+                if (chests.Count == 0)
+                    yield break;
+            }
+
+            ProcessNeighbours(state, toOpen, track, visited, heap);
         }
     }
 
-    private static void UpdatePath(
-        State state,
-        Point currentPoint,
-        int currentCost,
-        Point nextPoint,
-        Dictionary<Point, int> pathCosts,
-        Dictionary<Point, Point> previousPoints,
-        PriorityQueue<Point, int> openPoints)
+    private static void ProcessNeighbours(State state, Point toOpen,
+        Dictionary<Point, DijkstraData> track, HashSet<Point> visited,
+        PriorityQueue<Point, int> heap)
     {
-        var nextCost = currentCost + state.CellCost[nextPoint.X, nextPoint.Y];
-        if (HasNoBetterPath(pathCosts, nextPoint, nextCost))
+        var currentPrice = track[toOpen].Price;
+        foreach (var (dx, dy) in Directions)
+        {
+            var nx = toOpen.X + dx;
+            var ny = toOpen.Y + dy;
+
+            if (nx < 0 || ny < 0 || nx >= state.MapWidth || ny >= state.MapHeight)
+                continue;
+
+            var neighbour = new Point(nx, ny);
+            if (!visited.Contains(neighbour))
+                TryUpdateNeighbour(neighbour, currentPrice, toOpen, state, track, heap);
+        }
+    }
+
+    private static void TryUpdateNeighbour(Point neighbour, int currentPrice, Point from,
+        State state, Dictionary<Point, DijkstraData> track, PriorityQueue<Point, int> heap)
+    {
+        var cellCost = state.CellCost[neighbour.X, neighbour.Y];
+        if (cellCost == 0)
             return;
 
-        pathCosts[nextPoint] = nextCost;
-        previousPoints[nextPoint] = currentPoint;
-        openPoints.Enqueue(nextPoint, nextCost);
-    }
-
-    private static bool HasNoBetterPath(
-        Dictionary<Point, int> pathCosts,
-        Point nextPoint,
-        int nextCost)
-    {
-        return pathCosts.TryGetValue(nextPoint, out var knownCost)
-               && knownCost <= nextCost;
-    }
-
-    private static List<Point> BuildPath(
-        Dictionary<Point, Point> previousPoints,
-        Point start,
-        Point end)
-    {
-        var pathPoints = new List<Point>();
-        var currentPoint = end;
-
-        while (currentPoint != start)
+        var newPrice = currentPrice + cellCost;
+        if (!track.TryGetValue(neighbour, out var existing) || existing.Price > newPrice)
         {
-            pathPoints.Add(currentPoint);
-            currentPoint = previousPoints[currentPoint];
+            track[neighbour] = new DijkstraData { Previous = from, Price = newPrice };
+            heap.Enqueue(neighbour, newPrice);
         }
+    }
 
-        pathPoints.Add(start);
-        pathPoints.Reverse();
-        return pathPoints;
+    private static Point[] BuildPath(Dictionary<Point, DijkstraData> track, Point end)
+    {
+        var stop = new Point(-1, -1);
+        var result = new List<Point>();
+        for (var current = end; current != stop; current = track[current].Previous)
+            result.Add(current);
+        result.Reverse();
+        return result.ToArray();
     }
 }
