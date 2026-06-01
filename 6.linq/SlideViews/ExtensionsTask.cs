@@ -9,11 +9,11 @@ public static class ExtensionsTask
 	public static double Median(this IEnumerable<double> items)
 	{
 		var sorted = items.OrderBy(x => x).ToList();
-		
+
 		if (sorted.Count == 0)
 			throw new InvalidOperationException("Последовательность не содержит элементов");
 
-		int mid = sorted.Count / 2;
+		var mid = sorted.Count / 2;
 
 		return sorted.Count % 2 == 1
 			? sorted[mid]

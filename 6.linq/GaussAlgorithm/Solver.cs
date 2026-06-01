@@ -5,57 +5,175 @@ namespace GaussAlgorithm;
 
 public class Solver
 {
+    private const double Epsilon = 1e-10;
+
     public double[] Solve(double[][] matrix, double[] freeMembers)
     {
-        int m = matrix.Length;
-        if (m == 0) return [];
+        ValidateInput(matrix, freeMembers);
 
-        int n = matrix[0].Length;
+        var rowCount = matrix.Length;
+        if (rowCount == 0) return [];
 
-        if (matrix.Any(row => row.Length != n))
+        var columnCount = matrix[0].Length;
+        var pivotColumns = Enumerable.Repeat(-1, rowCount).ToArray();
+
+        var pivotRowCount = ReduceMatrix(matrix, freeMembers, pivotColumns);
+
+        CheckNoSolution(matrix, freeMembers, pivotRowCount);
+
+        return BuildSolution(matrix, freeMembers, pivotColumns, pivotRowCount, columnCount);
+    }
+
+    private static void ValidateInput(double[][] matrix, double[] freeMembers)
+    {
+        var rowCount = matrix.Length;
+        if (rowCount == 0) return;
+
+        var columnCount = matrix[0].Length;
+
+        if (matrix.Any(row => row.Length != columnCount))
             throw new ArgumentException("All matrix rows must have the same length");
-        if (freeMembers.Length != m)
+
+        if (freeMembers.Length != rowCount)
             throw new ArgumentException("Matrix rows and free members size mismatch");
+    }
 
-        int[] pivotCol = Enumerable.Repeat(-1, m).ToArray();
-        int currentRow = 0;
+    private static int ReduceMatrix(
+        double[][] matrix,
+        double[] freeMembers,
+        int[] pivotColumns)
+    {
+        var rowCount = matrix.Length;
+        var columnCount = matrix[0].Length;
+        var currentRow = 0;
 
-        for (int col = 0; col < n && currentRow < m; col++)
+        for (var column = 0; column < columnCount && currentRow < rowCount; column++)
         {
-            int maxRow = Enumerable.Range(currentRow, m - currentRow)
-                .MaxBy(k => Math.Abs(matrix[k][col]));
+            var pivotRow = FindPivotRow(matrix, currentRow, column);
 
-            if (Math.Abs(matrix[maxRow][col]) < 1e-10) continue;
+            if (Math.Abs(matrix[pivotRow][column]) < Epsilon)
+                continue;
 
-            (matrix[currentRow], matrix[maxRow]) = (matrix[maxRow], matrix[currentRow]);
-            (freeMembers[currentRow], freeMembers[maxRow]) = (freeMembers[maxRow], freeMembers[currentRow]);
+            SwapRows(matrix, freeMembers, currentRow, pivotRow);
 
-            pivotCol[currentRow] = col;
+            pivotColumns[currentRow] = column;
 
-            foreach (int j in Enumerable.Range(0, m).Where(j => j != currentRow))
-            {
-                double factor = matrix[j][col] / matrix[currentRow][col];
-                for (int c = col; c < n; c++)
-                    matrix[j][c] -= factor * matrix[currentRow][c];
-                freeMembers[j] -= factor * freeMembers[currentRow];
-            }
+            EliminateColumn(matrix, freeMembers, currentRow, column);
 
             currentRow++;
         }
 
-        if (Enumerable.Range(currentRow, m - currentRow)
-            .Any(i => matrix[i].All(v => Math.Abs(v) < 1e-10)
-                   && Math.Abs(freeMembers[i]) > 1e-10))
+        return currentRow;
+    }
+
+    private static int FindPivotRow(
+        double[][] matrix,
+        int startRow,
+        int column)
+    {
+        var rowCount = matrix.Length;
+
+        return Enumerable.Range(startRow, rowCount - startRow)
+            .MaxBy(row => Math.Abs(matrix[row][column]));
+    }
+
+    private static void SwapRows(
+        double[][] matrix,
+        double[] freeMembers,
+        int firstRow,
+        int secondRow)
+    {
+        (matrix[firstRow], matrix[secondRow]) = (matrix[secondRow], matrix[firstRow]);
+
+        (freeMembers[firstRow], freeMembers[secondRow]) =
+            (freeMembers[secondRow], freeMembers[firstRow]);
+    }
+
+    private static void EliminateColumn(
+        double[][] matrix,
+        double[] freeMembers,
+        int pivotRow,
+        int pivotColumn)
+    {
+        var rowCount = matrix.Length;
+
+        foreach (var row in Enumerable.Range(0, rowCount).Where(row => row != pivotRow))
+            EliminateRow(matrix, freeMembers, row, pivotRow, pivotColumn);
+    }
+
+    private static void EliminateRow(
+        double[][] matrix,
+        double[] freeMembers,
+        int row,
+        int pivotRow,
+        int pivotColumn)
+    {
+        var columnCount = matrix[0].Length;
+        var factor = matrix[row][pivotColumn] / matrix[pivotRow][pivotColumn];
+
+        for (var column = pivotColumn; column < columnCount; column++)
+            matrix[row][column] -= factor * matrix[pivotRow][column];
+
+        freeMembers[row] -= factor * freeMembers[pivotRow];
+    }
+
+    private static void CheckNoSolution(
+        double[][] matrix,
+        double[] freeMembers,
+        int pivotRowCount)
+    {
+        var rowCount = matrix.Length;
+
+        var hasContradiction = Enumerable.Range(pivotRowCount, rowCount - pivotRowCount)
+            .Any(row => IsZeroRow(matrix[row]) && Math.Abs(freeMembers[row]) > Epsilon);
+
+        if (hasContradiction)
             throw new NoSolutionException("System has no solution");
+    }
 
-        double[] x = new double[n];
-        for (int i = currentRow - 1; i >= 0; i--)
-        {
-            int col = pivotCol[i];
-            x[col] = (freeMembers[i] - Enumerable.Range(col + 1, n - col - 1)
-                .Sum(j => matrix[i][j] * x[j])) / matrix[i][col];
-        }
+    private static bool IsZeroRow(double[] row)
+    {
+        return row.All(value => Math.Abs(value) < Epsilon);
+    }
 
-        return x;
+    private static double[] BuildSolution(
+        double[][] matrix,
+        double[] freeMembers,
+        int[] pivotColumns,
+        int pivotRowCount,
+        int columnCount)
+    {
+        var solution = new double[columnCount];
+
+        for (var row = pivotRowCount - 1; row >= 0; row--)
+            CalculateVariable(matrix, freeMembers, pivotColumns, solution, row);
+
+        return solution;
+    }
+
+    private static void CalculateVariable(
+        double[][] matrix,
+        double[] freeMembers,
+        int[] pivotColumns,
+        double[] solution,
+        int row)
+    {
+        var pivotColumn = pivotColumns[row];
+        var columnCount = matrix[0].Length;
+        var sum = CalculateKnownPart(matrix, solution, row, pivotColumn, columnCount);
+
+        solution[pivotColumn] =
+            (freeMembers[row] - sum) / matrix[row][pivotColumn];
+    }
+
+    private static double CalculateKnownPart(
+        double[][] matrix,
+        double[] solution,
+        int row,
+        int pivotColumn,
+        int columnCount)
+    {
+        return Enumerable.Range(pivotColumn + 1, columnCount - pivotColumn - 1)
+            .Sum(column => matrix[row][column] * solution[column]);
     }
 }
